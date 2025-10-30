@@ -32,8 +32,8 @@ const statusVariants = {
 
 export const ProductCard = ({ product }: ProductCardProps) => {
   const handleWhatsAppOrder = () => {
-    const message = `Olá! Tenho interesse no produto: *${product.name}*\nPreço: R$ ${product.price.toFixed(2)}\nLink: ${window.location.href}`;
-    const whatsappUrl = `https://wa.me/5511999999999?text=${encodeURIComponent(message)}`;
+    const message = `Olá! Gostaria de pedir o produto: ${product.name}\nPreço: R$ ${product.price.toFixed(2)}\nTem disponível: ${product.quantity}`;
+    const whatsappUrl = `https://wa.me/5511912345678?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
 
