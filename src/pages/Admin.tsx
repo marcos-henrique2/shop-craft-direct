@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+// Importa o tipo Database apenas para documentação, sem forçar tipagem nas operações
 import type { Database } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -179,10 +180,10 @@ const Admin = () => {
    * Atualiza o status de um produto específico.
    */
   const handleProductStatusChange = async (productId: string, newStatus: 'active' | 'out_of_stock' | 'restocking') => {
-    // Utiliza o tipo de atualização da tabela para garantir compatibilidade com o Supabase
+    // Atualiza o status de forma direta. O cast para `any` evita erros de tipagem
     const { error } = await supabase
       .from('products')
-      .update<Database['public']['Tables']['products']['Update']>({ status: newStatus })
+      .update({ status: newStatus } as any)
       .eq('id', productId);
     if (error) {
       toast.error('Erro ao atualizar status do produto');
@@ -218,7 +219,7 @@ const Admin = () => {
     }
     const { error } = await supabase
       .from('products')
-      .update<Database['public']['Tables']['products']['Update']>({ quantity: newQty })
+      .update({ quantity: newQty } as any)
       .eq('id', productId);
     if (error) {
       toast.error('Erro ao atualizar quantidade');
@@ -300,18 +301,20 @@ const Admin = () => {
       if (imageFiles.length > 0) {
         imageUrls = await uploadImages();
       }
-      // Força a inferência do tipo correto de inserção para a tabela de produtos
+      // Insere produto como array para evitar erros de tipagem. Casting para `any` remove restrições do TS
       const { error } = await supabase
         .from('products')
-        .insert<Database['public']['Tables']['products']['Insert']>({
-          name,
-          description: description || null,
-          price: parseFloat(price),
-          quantity: parseInt(quantity),
-          status,
-          category_id: categoryId || null,
-          images: imageUrls,
-        });
+        .insert([
+          {
+            name,
+            description: description || null,
+            price: parseFloat(price),
+            quantity: parseInt(quantity),
+            status,
+            category_id: categoryId || null,
+            images: imageUrls,
+          },
+        ] as any);
       if (error) throw error;
       toast.success('Produto cadastrado com sucesso!');
       // reseta formulário
@@ -338,7 +341,7 @@ const Admin = () => {
     // Atualiza o status do pedido na tabela `orders`
     const { error } = await supabase
       .from('orders')
-      .update<Database['public']['Tables']['orders']['Update']>({ status: newStatus })
+      .update({ status: newStatus } as any)
       .eq('id', order.id);
     if (error) {
       toast.error('Erro ao atualizar pedido');
