@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -178,7 +179,11 @@ const Admin = () => {
    * Atualiza o status de um produto específico.
    */
   const handleProductStatusChange = async (productId: string, newStatus: 'active' | 'out_of_stock' | 'restocking') => {
-    const { error } = await supabase.from('products').update({ status: newStatus }).eq('id', productId);
+    // Utiliza o tipo de atualização da tabela para garantir compatibilidade com o Supabase
+    const { error } = await supabase
+      .from('products')
+      .update<Database['public']['Tables']['products']['Update']>({ status: newStatus })
+      .eq('id', productId);
     if (error) {
       toast.error('Erro ao atualizar status do produto');
       return;
@@ -211,7 +216,10 @@ const Admin = () => {
       toast.error('Quantidade inválida');
       return;
     }
-    const { error } = await supabase.from('products').update({ quantity: newQty }).eq('id', productId);
+    const { error } = await supabase
+      .from('products')
+      .update<Database['public']['Tables']['products']['Update']>({ quantity: newQty })
+      .eq('id', productId);
     if (error) {
       toast.error('Erro ao atualizar quantidade');
     } else {
@@ -292,15 +300,18 @@ const Admin = () => {
       if (imageFiles.length > 0) {
         imageUrls = await uploadImages();
       }
-      const { error } = await supabase.from('products').insert({
-        name,
-        description: description || null,
-        price: parseFloat(price),
-        quantity: parseInt(quantity),
-        status,
-        category_id: categoryId || null,
-        images: imageUrls,
-      });
+      // Força a inferência do tipo correto de inserção para a tabela de produtos
+      const { error } = await supabase
+        .from('products')
+        .insert<Database['public']['Tables']['products']['Insert']>({
+          name,
+          description: description || null,
+          price: parseFloat(price),
+          quantity: parseInt(quantity),
+          status,
+          category_id: categoryId || null,
+          images: imageUrls,
+        });
       if (error) throw error;
       toast.success('Produto cadastrado com sucesso!');
       // reseta formulário
@@ -327,7 +338,7 @@ const Admin = () => {
     // Atualiza o status do pedido na tabela `orders`
     const { error } = await supabase
       .from('orders')
-      .update({ status: newStatus })
+      .update<Database['public']['Tables']['orders']['Update']>({ status: newStatus })
       .eq('id', order.id);
     if (error) {
       toast.error('Erro ao atualizar pedido');
