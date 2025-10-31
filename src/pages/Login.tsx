@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,11 +26,13 @@ const Login = () => {
   const { signIn, user } = useAuth();
   const navigate = useNavigate();
 
-  // Se o usuário já estiver logado, redireciona para a área admin
-  if (user) {
-    navigate('/admin');
-    return null;
-  }
+  // Redireciona para a área admin se o usuário já estiver logado. Fazemos isso
+  // dentro de um useEffect para evitar efeitos colaterais durante a renderização.
+  useEffect(() => {
+    if (user) {
+      navigate('/admin');
+    }
+  }, [user, navigate]);
 
   const validate = () => {
     try {

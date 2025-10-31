@@ -78,7 +78,7 @@ interface OrderRow {
 }
 
 const Admin = () => {
-  const { user, isAdmin, loading: authLoading, signOut } = useAuth();
+  const { user, isAdmin, loading: authLoading, roleLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const [categories, setCategories] = useState<Category[]>([]);
   // Estados do formulário de produtos
@@ -102,10 +102,13 @@ const Admin = () => {
 
   // Protege rota: se não estiver logado ou não for admin, redireciona
   useEffect(() => {
-    if (!authLoading && (!user || !isAdmin)) {
-      navigate('/login');
+    // Apenas redireciona após a checagem completa de autenticação e papel.
+    if (!authLoading && !roleLoading) {
+      if (!user || !isAdmin) {
+        navigate('/login');
+      }
     }
-  }, [user, isAdmin, authLoading, navigate]);
+  }, [user, isAdmin, authLoading, roleLoading, navigate]);
 
   // Carrega categorias para seleção de produto
   useEffect(() => {
