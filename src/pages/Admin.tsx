@@ -82,6 +82,10 @@ interface OrderRow {
 const Admin = () => {
   const { user, isAdmin, loading: authLoading, roleLoading, signOut } = useAuth();
   const navigate = useNavigate();
+  // Casting the Supabase client to `any` avoids TS errors when performing
+  // insert/update operations. Without this cast the generic inference may
+  // resolve to `never`, causing parameter type errors. See README for details.
+  const supabaseClient: any = supabase;
   const [categories, setCategories] = useState<Category[]>([]);
   // Estados do formulário de produtos
   const [name, setName] = useState('');
@@ -128,7 +132,7 @@ const Admin = () => {
      * reduzir o payload. Após o fetch, transformamos cada linha no formato
      * esperado pela interface (OrderRow).
      */
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('orders')
       .select(
         `id, quantity, total_price, status, notes, created_at, customer_name, customer_phone, products(id, name, price, quantity, status)`
@@ -164,7 +168,7 @@ const Admin = () => {
    */
   const fetchAdminProducts = async () => {
     setLoadingAdminProducts(true);
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('products')
       .select('id, name, price, quantity, status')
       .order('created_at', { ascending: false });
@@ -181,7 +185,7 @@ const Admin = () => {
    */
   const handleProductStatusChange = async (productId: string, newStatus: 'active' | 'out_of_stock' | 'restocking') => {
     // Atualiza o status de forma direta. O cast para `any` evita erros de tipagem
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('products')
       .update({ status: newStatus } as any)
       .eq('id', productId);
@@ -197,7 +201,7 @@ const Admin = () => {
    * Exclui permanentemente um produto.
    */
   const handleDeleteProduct = async (productId: string) => {
-    const { error } = await supabase.from('products').delete().eq('id', productId);
+    const { error } = await supabaseClient.from('products').delete().eq('id', productId);
     if (error) {
       toast.error('Erro ao excluir produto');
       return;
@@ -217,7 +221,7 @@ const Admin = () => {
       toast.error('Quantidade inválida');
       return;
     }
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('products')
       .update({ quantity: newQty } as any)
       .eq('id', productId);
@@ -236,7 +240,7 @@ const Admin = () => {
 
   const fetchCategories = async () => {
     // Busca apenas id e nome para otimizar a consulta e reduzir dados transferidos
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('categories')
       .select('id, name')
       .order('name');
@@ -266,13 +270,13 @@ const Admin = () => {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `${fileName}`;
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabaseClient.storage
         .from('product-images')
         .upload(filePath, file);
       if (uploadError) {
         throw uploadError;
       }
-      const { data: { publicUrl } } = supabase.storage
+      const { data: { publicUrl } } = supabaseClient.storage
         .from('product-images')
         .getPublicUrl(filePath);
       uploadedUrls.push(publicUrl);
@@ -302,7 +306,7 @@ const Admin = () => {
         imageUrls = await uploadImages();
       }
       // Insere produto como array para evitar erros de tipagem. Casting para `any` remove restrições do TS
-      const { error } = await supabase
+      const { error } = await supabaseClient
         .from('products')
         .insert([
           {
@@ -339,7 +343,7 @@ const Admin = () => {
 
   const handleOrderStatusChange = async (order: OrderRow, newStatus: OrderRow['status']) => {
     // Atualiza o status do pedido na tabela `orders`
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('orders')
       .update({ status: newStatus } as any)
       .eq('id', order.id);
@@ -354,7 +358,7 @@ const Admin = () => {
 
   const handleDeleteOrder = async (orderId: string) => {
     // Exclui o pedido na tabela `orders` pelo id
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('orders')
       .delete()
       .eq('id', orderId);
