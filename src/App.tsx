@@ -9,15 +9,9 @@ import Login from './pages/Login';
 import Store from './pages/Store';
 import Admin from './pages/Admin';
 import NotFound from './pages/NotFound';
+// --- 1. IMPORTAÇÃO DA NOVA PÁGINA ---
+import ProductDetail from './pages/ProductDetail';
 
-/**
- * Componente raiz de rotas para o Shop Craft Direct.
- *
- * Aqui adicionamos a rota de login para proteger o painel administrativo e
- * mantemos as rotas existentes para a loja e para a página inicial. O
- * AuthProvider envolve todas as rotas para disponibilizar estado de
- * autenticação às páginas.
- */
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -32,6 +26,10 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/store" element={<Store />} />
             <Route path="/admin" element={<Admin />} />
+            
+            {/* --- 2. ROTA ADICIONADA AQUI --- */}
+            <Route path="/produto/:id" element={<ProductDetail />} />
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
