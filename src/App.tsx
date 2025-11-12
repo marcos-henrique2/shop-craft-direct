@@ -9,8 +9,11 @@ import Login from './pages/Login';
 import Store from './pages/Store';
 import Admin from './pages/Admin';
 import NotFound from './pages/NotFound';
-// --- 1. IMPORTAÇÃO DA NOVA PÁGINA ---
 import ProductDetail from './pages/ProductDetail';
+import CalculatorPage from './pages/admin/CalculatorPage';
+
+// --- 1. IMPORTAR O NOVO LAYOUT ---
+import MainLayout from './components/MainLayout';
 
 const queryClient = new QueryClient();
 
@@ -22,13 +25,20 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            {/* Rota inicial e Login ficam fora do layout principal */}
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/store" element={<Store />} />
-            <Route path="/admin" element={<Admin />} />
             
-            {/* --- 2. ROTA ADICIONADA AQUI --- */}
-            <Route path="/produto/:id" element={<ProductDetail />} />
+            {/* --- 2. ROTAS PÚBLICAS DENTRO DO MainLayout --- */}
+            {/* Isso adiciona o cabeçalho a todas as rotas filhas */}
+            <Route element={<MainLayout />}>
+              <Route path="/store" element={<Store />} />
+              <Route path="/produto/:id" element={<ProductDetail />} />
+            </Route>
+
+            {/* --- 3. ROTAS DE ADMIN (sem o layout público) --- */}
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/admin/calculadora" element={<CalculatorPage />} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>

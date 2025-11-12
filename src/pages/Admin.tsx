@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-// Importa o tipo Database apenas para documentação, sem forçar tipagem nas operações
+// Importa o tipo Database apenas para documentação
 import type { Database } from '@/integrations/supabase/types';
+
+// Componentes de UI necessários
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -25,90 +25,47 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { LogOut, Package, ShoppingCart, Upload, X, RefreshCw, Trash } from 'lucide-react';
-import { z } from 'zod';
+
+// Ícones
+import { LogOut, Package, ShoppingCart, RefreshCw, Trash, Calculator } from 'lucide-react';
+
+// REMOVEMOS: productSchema e 'zod'
+// REMOVEMOS: o tipo 'Category'
 
 /**
- * Página administrativa para cadastramento de produtos e gerenciamento de pedidos.
- *
- * Esta implementação protege o acesso através do contexto de autenticação. Apenas
- * usuários logados e com papel de administrador podem acessar. A página contém
- * três abas: uma para cadastrar novos produtos, outra para gerenciar o estoque
- * e uma terceira para listar/gerenciar pedidos registrados na tabela `orders` do Supabase.
- */
-
-// Schema de validação do produto
-const productSchema = z.object({
-  name: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres').max(200),
-  description: z.string().max(1000).optional(),
-  price: z.number().positive('Preço deve ser maior que zero'),
-  quantity: z.number().int().min(0, 'Quantidade não pode ser negativa'),
-});
-
-// Tipos auxiliares
-interface Category {
-  id: string;
-  name: string;
-}
-
-/**
- * Representa um pedido retornado pela API do Supabase. O pedido está
- * associado a um produto via a coluna `product_id` e contém informações
- * do cliente, quantidade solicitada e preço total. Após o fetch os
- * dados são normalizados para facilitar a exibição na interface.
+ * Representa um pedido retornado pela API do Supabase.
  */
 interface OrderRow {
   id: string;
-  /** Nome do produto associado ao pedido */
   product_name: string;
-  /** Preço unitário do produto no momento do pedido */
   price: number;
-  /** Quantidade solicitada pelo cliente */
   quantity_requested: number;
-  /** Quantidade em estoque no momento do pedido (pode ser null se não carregado) */
   stock_quantity: number;
-  /** Status do pedido conforme enum `order_status` */
   status: 'pending' | 'confirmed' | 'cancelled';
-  /** Data/hora de criação do pedido */
   created_at: string;
-  /** Observações fornecidas pelo cliente */
   notes: string | null;
-  /** Nome do cliente */
   customer_name: string;
-  /** Telefone ou contato do cliente */
   customer_phone: string;
 }
 
 const Admin = () => {
   const { user, isAdmin, loading: authLoading, roleLoading, signOut } = useAuth();
   const navigate = useNavigate();
-  // Casting the Supabase client to `any` avoids TS errors when performing
-  // insert/update operations. Without this cast the generic inference may
-  // resolve to `never`, causing parameter type errors. See README for details.
   const supabaseClient: any = supabase;
-  const [categories, setCategories] = useState<Category[]>([]);
-  // Estados do formulário de produtos
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [price, setPrice] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [status, setStatus] = useState<'active' | 'out_of_stock' | 'restocking'>('active');
-  const [categoryId, setCategoryId] = useState('');
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [loadingProduct, setLoadingProduct] = useState(false);
+
+  // REMOVEMOS: States do formulário de produto (name, description, price, etc.)
+  
   // Estados de pedidos
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
-  // Estados da lista de produtos cadastrados
+  // Estados da lista de produtos cadastrados (Estoque)
   const [adminProducts, setAdminProducts] = useState<Array<{ id: string; name: string; price: number; quantity: number; status: 'active' | 'out_of_stock' | 'restocking'; }>>([]);
   const [loadingAdminProducts, setLoadingAdminProducts] = useState(false);
-  // Armazena as quantidades editadas temporariamente para envio sob demanda
   const [quantityEdits, setQuantityEdits] = useState<Record<string, string>>({});
 
-  // Protege rota: se não estiver logado ou não for admin, redireciona
+  // Protege rota
   useEffect(() => {
-    // Apenas redireciona após a checagem completa de autenticação e papel.
     if (!authLoading && !roleLoading) {
       if (!user || !isAdmin) {
         navigate('/login');
@@ -116,22 +73,11 @@ const Admin = () => {
     }
   }, [user, isAdmin, authLoading, roleLoading, navigate]);
 
-  // Carrega categorias para seleção de produto
-  useEffect(() => {
-    if (isAdmin) {
-      fetchCategories();
-    }
-  }, [isAdmin]);
+  // REMOVEMOS: useEffect que buscava categorias
 
-  // Carrega pedidos quando a aba de pedidos for selecionada
+  // Carrega pedidos
   const fetchOrders = async () => {
     setLoadingOrders(true);
-    /*
-     * Faz uma consulta à tabela `orders` e inclui dados do produto associado via
-     * relacionamento "products". Selecionamos apenas as colunas necessárias para
-     * reduzir o payload. Após o fetch, transformamos cada linha no formato
-     * esperado pela interface (OrderRow).
-     */
     const { data, error } = await supabaseClient
       .from('orders')
       .select(
@@ -143,7 +89,6 @@ const Admin = () => {
       setLoadingOrders(false);
       return;
     }
-    // Converte o resultado para OrderRow
     const formatted: OrderRow[] = (data || []).map((row: any) => {
       const product = row.products as any;
       return {
@@ -184,10 +129,9 @@ const Admin = () => {
    * Atualiza o status de um produto específico.
    */
   const handleProductStatusChange = async (productId: string, newStatus: 'active' | 'out_of_stock' | 'restocking') => {
-    // Atualiza o status de forma direta. O cast para `any` evita erros de tipagem
     const { error } = await supabaseClient
       .from('products')
-      .update({ status: newStatus } as any)
+      .update({ status: newStatus })
       .eq('id', productId);
     if (error) {
       toast.error('Erro ao atualizar status do produto');
@@ -223,14 +167,13 @@ const Admin = () => {
     }
     const { error } = await supabaseClient
       .from('products')
-      .update({ quantity: newQty } as any)
+      .update({ quantity: newQty })
       .eq('id', productId);
     if (error) {
       toast.error('Erro ao atualizar quantidade');
     } else {
       toast.success('Quantidade atualizada');
       setAdminProducts(prev => prev.map(p => p.id === productId ? { ...p, quantity: newQty } : p));
-      // remove da lista de edições
       setQuantityEdits(prev => {
         const { [productId]: _, ...rest } = prev;
         return rest;
@@ -238,103 +181,7 @@ const Admin = () => {
     }
   };
 
-  const fetchCategories = async () => {
-    // Busca apenas id e nome para otimizar a consulta e reduzir dados transferidos
-    const { data, error } = await supabaseClient
-      .from('categories')
-      .select('id, name')
-      .order('name');
-    if (!error && data) {
-      setCategories(data as Category[]);
-    }
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      if (files.length + imageFiles.length > 5) {
-        toast.error('Máximo de 5 imagens por produto');
-        return;
-      }
-      setImageFiles([...imageFiles, ...files]);
-    }
-  };
-
-  const removeImage = (index: number) => {
-    setImageFiles(imageFiles.filter((_, i) => i !== index));
-  };
-
-  const uploadImages = async (): Promise<string[]> => {
-    const uploadedUrls: string[] = [];
-    for (const file of imageFiles) {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `${fileName}`;
-      const { error: uploadError } = await supabaseClient.storage
-        .from('product-images')
-        .upload(filePath, file);
-      if (uploadError) {
-        throw uploadError;
-      }
-      const { data: { publicUrl } } = supabaseClient.storage
-        .from('product-images')
-        .getPublicUrl(filePath);
-      uploadedUrls.push(publicUrl);
-    }
-    return uploadedUrls;
-  };
-
-  const handleProductSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      productSchema.parse({
-        name,
-        description,
-        price: parseFloat(price),
-        quantity: parseInt(quantity),
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        toast.error(error.errors[0].message);
-        return;
-      }
-    }
-    setLoadingProduct(true);
-    try {
-      let imageUrls: string[] = [];
-      if (imageFiles.length > 0) {
-        imageUrls = await uploadImages();
-      }
-      // Insere produto como array para evitar erros de tipagem. Casting para `any` remove restrições do TS
-      const { error } = await supabaseClient
-        .from('products')
-        .insert([
-          {
-            name,
-            description: description || null,
-            price: parseFloat(price),
-            quantity: parseInt(quantity),
-            status,
-            category_id: categoryId || null,
-            images: imageUrls,
-          },
-        ] as any);
-      if (error) throw error;
-      toast.success('Produto cadastrado com sucesso!');
-      // reseta formulário
-      setName('');
-      setDescription('');
-      setPrice('');
-      setQuantity('');
-      setStatus('active');
-      setCategoryId('');
-      setImageFiles([]);
-    } catch (error: any) {
-      toast.error('Erro ao cadastrar produto: ' + error.message);
-    } finally {
-      setLoadingProduct(false);
-    }
-  };
+  // REMOVEMOS: Funções 'fetchCategories', 'handleImageChange', 'removeImage', 'uploadImages', 'handleProductSubmit'
 
   const handleLogout = async () => {
     await signOut();
@@ -342,22 +189,19 @@ const Admin = () => {
   };
 
   const handleOrderStatusChange = async (order: OrderRow, newStatus: OrderRow['status']) => {
-    // Atualiza o status do pedido na tabela `orders`
     const { error } = await supabaseClient
       .from('orders')
-      .update({ status: newStatus } as any)
+      .update({ status: newStatus })
       .eq('id', order.id);
     if (error) {
       toast.error('Erro ao atualizar pedido');
       return;
     }
     toast.success('Status atualizado');
-    // Atualiza estado local
     setOrders(prev => prev.map(o => (o.id === order.id ? { ...o, status: newStatus } : o)));
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    // Exclui o pedido na tabela `orders` pelo id
     const { error } = await supabaseClient
       .from('orders')
       .delete()
@@ -392,6 +236,12 @@ const Admin = () => {
               </h1>
             </div>
             <div className="flex items-center gap-4">
+              
+              <Button variant="outline" onClick={() => navigate('/admin/calculadora')}>
+                <Calculator className="mr-2 h-4 w-4" />
+                Calculadora
+              </Button>
+
               <Button variant="outline" onClick={() => navigate('/')}>Ver Loja</Button>
               <Button variant="outline" onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />Sair
@@ -401,11 +251,11 @@ const Admin = () => {
         </div>
       </header>
       <main className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="products" className="space-y-6">
+        {/* --- VALOR PADRÃO MUDADO PARA "catalog" --- */}
+        <Tabs defaultValue="catalog" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="products">
-              <Package className="mr-2 h-4 w-4" />Cadastrar
-            </TabsTrigger>
+            {/* --- ABA "Cadastrar" REMOVIDA --- */}
+            
             <TabsTrigger value="catalog" onClick={fetchAdminProducts}>
               <RefreshCw className="mr-2 h-4 w-4" />Estoque
             </TabsTrigger>
@@ -413,138 +263,9 @@ const Admin = () => {
               <ShoppingCart className="mr-2 h-4 w-4" />Pedidos
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="products">
-            <Card>
-              <CardHeader>
-                <CardTitle>Cadastrar Novo Produto</CardTitle>
-                <CardDescription>Preencha os dados do produto para adicionar ao catálogo</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleProductSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Nome do Produto *</Label>
-                      <Input
-                        id="name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        required
-                        maxLength={200}
-                        placeholder="Ex: Produto Incrível"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="category">Categoria</Label>
-                      <Select value={categoryId} onValueChange={setCategoryId}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione uma categoria" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="price">Preço (R$) *</Label>
-                      <Input
-                        id="price"
-                        type="number"
-                        step="0.01"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        required
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="quantity">Quantidade em Estoque *</Label>
-                      <Input
-                        id="quantity"
-                        type="number"
-                        value={quantity}
-                        onChange={(e) => setQuantity(e.target.value)}
-                        required
-                        min="0"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="status">Status *</Label>
-                      <Select value={status} onValueChange={(val: any) => setStatus(val)}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="active">Ativo</SelectItem>
-                          <SelectItem value="out_of_stock">Esgotado</SelectItem>
-                          <SelectItem value="restocking">Em Reposição</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Descrição</Label>
-                    <Textarea
-                      id="description"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      maxLength={1000}
-                      rows={4}
-                      placeholder="Descreva as características do produto..."
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="images">Imagens (máximo 5)</Label>
-                    <div className="flex items-center gap-4">
-                      <Input
-                        id="images"
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleImageChange}
-                        className="hidden"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => document.getElementById('images')?.click()}
-                      >
-                        <Upload className="mr-2 h-4 w-4" />Adicionar Imagens
-                      </Button>
-                      <span className="text-sm text-muted-foreground">{imageFiles.length} imagem(ns) selecionada(s)</span>
-                    </div>
-                    {imageFiles.length > 0 && (
-                      <div className="grid grid-cols-3 md:grid-cols-5 gap-2 mt-4">
-                        {imageFiles.map((file, index) => (
-                          <div key={index} className="relative group">
-                            <img
-                              src={URL.createObjectURL(file)}
-                              alt={`Preview ${index + 1}`}
-                              className="w-full h-24 object-cover rounded-lg"
-                            />
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="icon"
-                              className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => removeImage(index)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <Button type="submit" disabled={loadingProduct} className="w-full md:w-auto">
-                    {loadingProduct ? 'Cadastrando...' : 'Cadastrar Produto'}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
+
+          {/* --- BLOCO <TabsContent value="products"> REMOVIDO --- */}
+
           <TabsContent value="catalog">
             <Card>
               <CardHeader>
@@ -642,21 +363,13 @@ const Admin = () => {
                       <tbody className="divide-y divide-border">
                         {orders.map((order) => (
                           <tr key={order.id} className="hover:bg-secondary/50">
-                            {/* data/hora formatada */}
                             <td className="px-3 py-2 text-sm">{new Date(order.created_at).toLocaleString()}</td>
-                            {/* nome do produto */}
                             <td className="px-3 py-2 text-sm">{order.product_name}</td>
-                            {/* preço unitário */}
                             <td className="px-3 py-2 text-sm">R$ {order.price.toFixed(2)}</td>
-                            {/* quantidade solicitada */}
                             <td className="px-3 py-2 text-sm">{order.quantity_requested}</td>
-                            {/* quantidade em estoque */}
                             <td className="px-3 py-2 text-sm">{order.stock_quantity}</td>
-                            {/* nome do cliente */}
                             <td className="px-3 py-2 text-sm">{order.customer_name}</td>
-                            {/* contato do cliente */}
                             <td className="px-3 py-2 text-sm">{order.customer_phone}</td>
-                            {/* status com badge */}
                             <td className="px-3 py-2 text-sm">
                               <Badge
                                 variant={
@@ -674,7 +387,6 @@ const Admin = () => {
                                   : 'Cancelado'}
                               </Badge>
                             </td>
-                            {/* Ações: alterar status ou excluir */}
                             <td className="px-3 py-2 text-sm">
                               <div className="flex items-center gap-2">
                                 <Select

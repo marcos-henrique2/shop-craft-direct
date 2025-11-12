@@ -1,29 +1,35 @@
 import { supabase } from '@/integrations/supabase/client'
 import { useEffect, useState } from 'react'
-// --- 1. IMPORTADO 'Link', 'Button', E ÍCONES ---
 import { useParams, Link } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Database } from '@/integrations/supabase/types'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, MessageCircle } from 'lucide-react'
-// --- FIM DAS IMPORTAÇÕES ---
+import { ArrowLeft, MessageCircle, Package, Clock, Layers } from 'lucide-react'
 
 // Tipo base gerado pelo Supabase
 type Product = Database['public']['Tables']['products']['Row']
 
-// 🔧 Extensão do tipo para garantir que o campo images exista
-type ProductWithImages = Product & {
+// Tipo atualizado para incluir 'metadata'
+type ProductWithDetails = Product & {
   images?: string[]
+  metadata?: {
+    material?: string;
+    print_time_total_hours?: number;
+    complexity?: string;
+  } | null;
 }
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>()
-  const [product, setProduct] = useState<ProductWithImages | null>(null)
+  const [product, setProduct] = useState<ProductWithDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
+
+  // --- 1. A SOLUÇÃO: USAR O CLIENTE 'any' (igual ao Admin.tsx) ---
+  const supabaseClient: any = supabase;
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -35,18 +41,20 @@ export default function ProductDetail() {
 
       try {
         setLoading(true)
-        const { data, error } = await supabase
+        
+        // --- 2. USAR 'supabaseClient' PARA A CONSULTA ---
+        const { data, error } = await supabaseClient
           .from('products')
-          .select('*')
+          .select('*, metadata') // Busca todos os campos E o metadata
           .eq('id', id)
-          .single<ProductWithImages>()
+          .eq('status', 'active') // Garante que só produtos ativos sejam mostrados
+          .single() // Removido o <ProductWithDetails> genérico para confiar no 'any'
 
         if (error) throw error
 
         if (data) {
-          setProduct(data)
-
-          // Agora o TypeScript reconhece o campo images
+          setProduct(data as ProductWithDetails) // Forçamos o tipo aqui
+          // Lógica original da galeria
           if (data.images && data.images.length > 0) {
             setSelectedImage(data.images[0])
           }
@@ -64,7 +72,7 @@ export default function ProductDetail() {
     fetchProduct()
   }, [id])
 
-  // --- 2. FUNÇÃO DO WHATSAPP ADICIONADA ---
+  // Função do WhatsApp (Mantida)
   const handleWhatsAppOrder = () => {
     if (!product) return;
     
@@ -73,13 +81,11 @@ export default function ProductDetail() {
     }\nPreço: R$ ${product.price.toFixed(2)}\nTem disponível: ${
       product.quantity
     }`
-    // Este é o mesmo número de telefone do seu ProductCard.tsx
     const whatsappUrl = `https://wa.me/5562982262543?text=${encodeURIComponent(
       message,
     )}`
     window.open(whatsappUrl, '_blank')
   }
-  // --- FIM DA FUNÇÃO ---
 
   if (loading) {
     return <ProductSkeleton />
@@ -107,7 +113,6 @@ export default function ProductDetail() {
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8">
       
-      {/* --- 3. BOTÃO "VOLTAR" ADICIONADO --- */}
       <Link
         to="/store"
         className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary mb-4"
@@ -115,11 +120,10 @@ export default function ProductDetail() {
         <ArrowLeft className="h-4 w-4" />
         Voltar para a loja
       </Link>
-      {/* --- FIM DO BOTÃO "VOLTAR" --- */}
 
       <Card className="overflow-hidden">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Coluna da Galeria de Imagens */}
+          {/* Coluna da Galeria de Imagens (Original) */}
           <div className="p-4 md:p-6">
             <div className="mb-4 aspect-square w-full overflow-hidden rounded-lg border">
               <img
@@ -166,6 +170,7 @@ export default function ProductDetail() {
                 </span>
               </div>
 
+              {/* Status e Estoque (Original) */}
               <div className="mb-6 flex items-center space-x-2">
                 <Badge
                   variant={
@@ -182,11 +187,41 @@ export default function ProductDetail() {
               </div>
 
               <h3 className="mb-2 text-lg font-semibold">Descrição</h3>
-              <p className="text-muted-foreground whitespace-pre-wrap">
+              <p className="text-muted-foreground whitespace-pre-wrap mb-6">
                 {product.description || 'Este produto não possui descrição.'}
               </p>
 
-              {/* --- 4. BOTÃO DE WHATSAPP SUBSTITUÍDO --- */}
+              {/* Seção de Detalhes da Impressão (Nova) */}
+              {product.metadata && (product.metadata.material || product.metadata.print_time_total_hours || product.metadata.complexity) && (
+                <div className="mb-6 border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-4">Detalhes da Impressão</h3>
+                  <div className="space-y-3">
+                    {product.metadata.material && (
+                      <div className="flex items-center text-sm">
+                        <Package className="mr-2 h-4 w-4 text-muted-foreground" />
+                        <strong>Material:</strong>
+                        <span className="ml-2">{product.metadata.material}</span>
+                      </div>
+                    )}
+                    {product.metadata.print_time_total_hours && (
+                      <div className="flex items-center text-sm">
+                        <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
+                        <strong>Tempo de Impressão:</strong>
+                        <span className="ml-2">{product.metadata.print_time_total_hours.toFixed(1)} horas</span>
+                      </div>
+                    )}
+                    {product.metadata.complexity && (
+                      <div className="flex items-center text-sm">
+                        <Layers className="mr-2 h-4 w-4 text-muted-foreground" />
+                        <strong>Complexidade:</strong>
+                        <Badge variant="outline" className="ml-2 capitalize">{product.metadata.complexity}</Badge>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Botão de WhatsApp (Original) */}
               <Button
                 onClick={handleWhatsAppOrder}
                 disabled={product.status !== 'active'}
@@ -195,7 +230,6 @@ export default function ProductDetail() {
                 <MessageCircle className="mr-2 h-4 w-4" />
                 Fazer Pedido
               </Button>
-              {/* --- FIM DA SUBSTITUIÇÃO --- */}
             </CardContent>
           </div>
         </div>
@@ -204,7 +238,7 @@ export default function ProductDetail() {
   )
 }
 
-// Skeleton (sem mudanças)
+// Skeleton (Original)
 const ProductSkeleton = () => (
   <div className="container mx-auto max-w-4xl px-4 py-8">
     <Card className="overflow-hidden">
